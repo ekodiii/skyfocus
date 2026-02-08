@@ -30,7 +30,7 @@ function Globe() {
     // Load and apply bump map manually to the globe material
     const textureLoader = new THREE.TextureLoader();
     textureLoader.load(
-      'https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73934/gebco_bathy.3x5400x2700_8bit.jpg',
+      'https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bathymetry/gebco_08_rev_bath_5400x2700.jpg',
       (bumpTexture) => {
         const globeMesh = globe.children.find(child => child.type === 'Mesh');
         if (globeMesh && globeMesh.material) {
