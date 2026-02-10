@@ -3,16 +3,22 @@ import { useThree, useFrame } from '@react-three/fiber';
 import ThreeGlobe from 'three-globe';
 import * as THREE from 'three';
 import { latLonToVector3 } from '../../utils/geo';
+import useFlightStore from '../../store/flightStore';
+
+// High-res NASA texture URL (21600x10800 JPEG, ~27MB)
+const HIRES_TEXTURE_URL = 'https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-topography-bathymetry/august/world.topo.bathy.200408.3x21600x10800.jpg';
 
 // Simplified Globe component using only three-globe base texture
 function Globe() {
   const globeRef = useRef();
+  const hiresLoadedRef = useRef(false);
   const { scene } = useThree();
+  const selectedAirport = useFlightStore((state) => state.selectedAirport);
 
   useEffect(() => {
-    // Create globe with your NASA Blue Marble texture
+    // Stage 1: Load local textures for instant display
     const globe = new ThreeGlobe({ animateIn: false })
-      .globeImageUrl('https://neo.gsfc.nasa.gov/archive/bluemarble/land_shallow_topo_21600.tif')
+      .globeImageUrl('/textures/earth.jpg')
       .showAtmosphere(true)
       .atmosphereColor('#4a9eff')
       .atmosphereAltitude(0.15);
@@ -27,17 +33,14 @@ function Globe() {
     globeRef.current = globe;
     scene.add(globe);
 
-    // Load and apply bump map manually to the globe material
+    // Load and apply bump map from local assets
     const textureLoader = new THREE.TextureLoader();
     textureLoader.load(
-      'https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bathymetry/gebco_08_rev_bath_5400x2700.jpg',
+      '/textures/bathymetry.jpg',
       (bumpTexture) => {
         const globeMesh = globe.children.find(child => child.type === 'Mesh');
         if (globeMesh && globeMesh.material) {
           globeMesh.material.bumpMap = bumpTexture;
-          // Set bump scale to match flight altitude scale
-          // Flight altitudes: 0-45000ft = 0-2 units on our scale
-          // Using 0.5 for more visible terrain depth
           globeMesh.material.bumpScale = 0.5;
           globeMesh.material.needsUpdate = true;
         }
@@ -52,6 +55,30 @@ function Globe() {
       scene.remove(globe);
     };
   }, [scene]);
+
+  // Stage 2: Upgrade to high-res NASA texture after first airport selection
+  useEffect(() => {
+    if (!selectedAirport || hiresLoadedRef.current || !globeRef.current) return;
+    hiresLoadedRef.current = true;
+
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(
+      HIRES_TEXTURE_URL,
+      (hiresTexture) => {
+        const globe = globeRef.current;
+        if (!globe) return;
+        const globeMesh = globe.children.find(child => child.type === 'Mesh');
+        if (globeMesh && globeMesh.material) {
+          globeMesh.material.map = hiresTexture;
+          globeMesh.material.needsUpdate = true;
+        }
+      },
+      undefined,
+      (error) => {
+        console.error('Error loading high-res texture:', error);
+      }
+    );
+  }, [selectedAirport]);
 
   // Prevent any rotation animations on the globe
   useFrame(() => {
